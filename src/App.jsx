@@ -1,8 +1,8 @@
 import {useState} from 'react'
 import {Amplify} from 'aws-amplify';
-import {signUp} from 'aws-amplify/auth';
+import {fetchAuthSession} from 'aws-amplify/auth';
 import {Authenticator, Button, Heading, Flex, View} from '@aws-amplify/ui-react';
-import {createAmplifyAuthAdapter, createStorageBrowser,} from '@aws-amplify/ui-react-storage/browser';
+import {createAmplifyAuthAdapter, createStorageBrowser,createManagedAuthAdapter, } from '@aws-amplify/ui-react-storage/browser';
 import "@aws-amplify/ui-react-storage/styles.css";
 import '@aws-amplify/ui-react/styles.css';
 import './App.css'
@@ -12,30 +12,32 @@ Amplify.configure(outputs);
 
 
 export const {StorageBrowser} = createStorageBrowser({
-    config: createAmplifyAuthAdapter(),
-});
+    config: createManagedAuthAdapter({
+        credentialsProvider: async () => {
+            const session = await fetchAuthSession();
+            return {
+                credentials: {
+                    accessKeyId: session.credentials.accessKeyId,
+                    secretAccessKey: session.credentials.secretAccessKey,
+                    sessionToken: session.credentials.sessionToken,
+                    expiration: session.credentials.expiration,
+                },
+            }
+        },
+        // AWS `region` and `accountId` of the S3 Access Grants Instance.
+        region: 'us-east-1',
+        accountId: '109881088269',
+        // call `onAuthStateChange` when end user auth state changes
+        // to clear sensitive data from the `StorageBrowser` state
+        registerAuthListener: (onAuthStateChange) => {
+        },
 
+    })
+})
 
 function App() {
-    const services = {
-        async handleSignUp(input) {
-            console.log(input)
-            const {username, password, options} = input;
-            return signUp({
-                username: username,
-                password,
-                options: {
-                    ...input.options,
-                    userAttributes: {
-                        ...input.options?.userAttributes,
-                        email: username,
-                    },
-                },
-            });
-        },
-    };
     return (
-        <Authenticator services={services}>
+        <Authenticator>
             {({signOut, user}) => (
                 <Flex direction="column"
                       justifyContent="flex-start"
